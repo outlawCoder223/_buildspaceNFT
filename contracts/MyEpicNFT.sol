@@ -8,6 +8,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "hardhat/console.sol";
 
+// Import helper funcs
+import {Base64} from "./lib/Base64.sol";
+
 // We inherit the contract we imported. This means we'll have access
 // to the inherited contract's methods
 contract MyEpicNFT is ERC721URIStorage {
@@ -105,11 +108,37 @@ contract MyEpicNFT is ERC721URIStorage {
         string memory first = pickRandomFirstWord(newItemId);
         string memory second = pickRandomSecondWord(newItemId);
         string memory third = pickRandomThirdWord(newItemId);
+        string memory combinedWord = string(
+            abi.encodePacked(first, second, third)
+        );
 
         // Concatenate svg
         string memory finalSvg = string(
-            abi.encodePacked(baseSvg, first, second, third, "</text></svg>")
+            abi.encodePacked(baseSvg, combinedWord, "</text></svg>")
         );
+
+        // base64 encode JSON metadata
+        string memory json = Base64.encode(
+            bytes(
+                string(
+                    abi.encodePacked(
+                        '{"name": "',
+                        // We set the title of our NFT as the generated word.
+                        combinedWord,
+                        '", "description": "A highly acclaimed collection of squares.", "image": "data:image/svg+xml;base64,',
+                        // We add data:image/svg+xml;base64 and then append our base64 encode our svg.
+                        Base64.encode(bytes(finalSvg)),
+                        '"}'
+                    )
+                )
+            )
+        );
+
+        // prepend data:application/json;base64,
+        string memory finalTokenUri = string(
+            abi.encodePacked("data:application/json;base64,", json)
+        );
+
         console.log("\n------------------");
         console.log(finalSvg);
         console.log("-------------------\n");
@@ -117,7 +146,7 @@ contract MyEpicNFT is ERC721URIStorage {
         _safeMint(msg.sender, newItemId);
 
         // Set the NFTs data
-        _setTokenURI(newItemId, "blah");
+        _setTokenURI(newItemId, finalTokenUri);
         console.log(
             "An NFT w/ ID %s has been minted to %s",
             newItemId,
@@ -126,5 +155,10 @@ contract MyEpicNFT is ERC721URIStorage {
 
         // Increment the counter for the next NFT
         _tokenIds.increment();
+        console.log(
+            "An NFT w/ ID %s has been minted to %s",
+            newItemId,
+            msg.sender
+        );
     }
 }
